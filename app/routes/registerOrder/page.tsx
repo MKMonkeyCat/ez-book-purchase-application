@@ -113,8 +113,7 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { getBooks, getOrderByStudentNumber, getOrders, getStudents } =
-    await import('~/.server/purchase-sheets');
+  const { getOrders, getStudents } = await import('~/.server/purchase-sheets');
 
   const requestUrl = new URL(request.url);
   const studentNumber =
@@ -140,24 +139,24 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { books: [] };
   }
 
-  const books = await getBooks();
-  const orders = await getOrderByStudentNumber(studentNumber);
   const allOrders = await getOrders();
+  const orders = allOrders.filter((order) =>
+    order.students.some(
+      (s) => s.number === studentNumber && s.status !== StudentOrderState.None,
+    ),
+  );
   const existingBookIsbns = new Set(
     orders?.map((order) => order.book.isbn) ?? [],
   );
-  const preOrderingBookIsbns = new Set(
-    allOrders
-      .filter((order) => order.status === OrderStatus.PreOrdering)
-      .map((order) => order.book.isbn),
-  );
 
   return {
-    books: books.filter(
-      (book) =>
-        !existingBookIsbns.has(book.isbn) &&
-        preOrderingBookIsbns.has(book.isbn),
-    ),
+    books: allOrders
+      .filter(
+        (order) =>
+          order.status === OrderStatus.PreOrdering &&
+          !existingBookIsbns.has(order.book.isbn),
+      )
+      .map((order) => order.book),
     orders,
     student,
   };

@@ -1,22 +1,24 @@
 FROM node:20-alpine AS development-dependencies-env
-COPY . /app
 WORKDIR /app
+COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:20-alpine AS production-dependencies-env
-COPY ./package.json package-lock.json /app/
+FROM node:20-alpine AS runtime-dependencies-env
 WORKDIR /app
-RUN npm ci --omit=dev
+RUN npm init -y \
+  && npm pkg set private=true type=module \
+  && npm install --omit=dev --no-audit --no-fund @react-router/serve@7.12.0 react-router@7.12.0
 
 FROM node:20-alpine AS build-env
-COPY . /app/
-COPY --from=development-dependencies-env /app/node_modules /app/node_modules
 WORKDIR /app
+COPY . .
+COPY --from=development-dependencies-env /app/node_modules /app/node_modules
 RUN npm run build
 
-FROM node:20-alpine
-COPY ./package.json package-lock.json /app/
-COPY --from=production-dependencies-env /app/node_modules /app/node_modules
-COPY --from=build-env /app/build /app/build
+FROM gcr.io/distroless/nodejs20-debian12:nonroot
 WORKDIR /app
-CMD ["npm", "run", "start"]
+ENV NODE_ENV=production
+COPY --from=runtime-dependencies-env /app/node_modules /app/node_modules
+COPY --from=build-env /app/build /app/build
+EXPOSE 3000
+CMD ["./node_modules/@react-router/serve/dist/cli.js", "./build/server/index.js"]

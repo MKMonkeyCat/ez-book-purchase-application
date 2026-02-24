@@ -1,4 +1,6 @@
-import { google, sheets_v4 } from 'googleapis';
+import { sheets } from '@googleapis/sheets';
+import type { sheets_v4 } from '@googleapis/sheets';
+import { JWT } from 'google-auth-library';
 
 const SHEETS_SCOPE = ['https://www.googleapis.com/auth/spreadsheets'];
 
@@ -38,7 +40,7 @@ async function createSheetsClient(): Promise<sheets_v4.Sheets> {
   const clientEmail = getRequiredEnv('GOOGLE_SHEETS_CLIENT_EMAIL');
   const privateKey = getPrivateKey();
 
-  const auth = new google.auth.JWT({
+  const auth = new JWT({
     email: clientEmail,
     key: privateKey,
     scopes: SHEETS_SCOPE,
@@ -46,7 +48,7 @@ async function createSheetsClient(): Promise<sheets_v4.Sheets> {
 
   await auth.authorize();
 
-  return google.sheets({ version: 'v4', auth });
+  return sheets({ version: 'v4', auth });
 }
 
 export function getGoogleSheetsClient(): Promise<sheets_v4.Sheets> {

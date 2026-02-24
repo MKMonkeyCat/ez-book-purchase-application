@@ -5,7 +5,7 @@ import {
   readSheetRange,
   updateSheetRange,
 } from './google-sheets';
-import { withCache } from './utils/cache';
+import { notifyCacheEdit, withCache } from './utils/cache';
 import {
   OrderStatus,
   StudentOrderState,
@@ -21,8 +21,44 @@ export const BASE_SHEET_NAME = '1-2';
 export const BOOKS_SHEET_NAME = `${BASE_SHEET_NAME}書`;
 export const ORDERS_SHEET_NAME = `${BASE_SHEET_NAME} 訂書`;
 
+const BOOKS_CACHE_KEY = 'books';
+const STUDENTS_CACHE_KEY = 'students';
+const ORDERS_CACHE_KEY = 'orders';
+
+const BOOKS_EDIT_KEY = 'sheets:books';
+const STUDENTS_EDIT_KEY = 'sheets:students';
+const ORDERS_EDIT_KEY = 'sheets:orders';
+
+export type PurchaseSheetEditTarget = 'books' | 'students' | 'orders' | 'all';
+
+const EDIT_KEY_BY_TARGET: Record<
+  Exclude<PurchaseSheetEditTarget, 'all'>,
+  string
+> = {
+  books: BOOKS_EDIT_KEY,
+  students: STUDENTS_EDIT_KEY,
+  orders: ORDERS_EDIT_KEY,
+};
+
+export const notifyPurchaseSheetsEdited = (
+  targets: PurchaseSheetEditTarget[] = ['all'],
+) => {
+  const requested = targets.length > 0 ? targets : ['all'];
+  const hasAll = requested.includes('all');
+
+  const keys = hasAll
+    ? Object.values(EDIT_KEY_BY_TARGET)
+    : requested
+        .filter((target): target is Exclude<PurchaseSheetEditTarget, 'all'> => {
+          return target !== 'all';
+        })
+        .map((target) => EDIT_KEY_BY_TARGET[target]);
+
+  notifyCacheEdit(Array.from(new Set(keys)));
+};
+
 export const getBooks = withCache(
-  'books',
+  BOOKS_CACHE_KEY,
   async (): Promise<IBook[]> => {
     const rows = await readSheetRange(BOOKS_SHEET_NAME);
     const bookMapping = {
@@ -43,11 +79,15 @@ export const getBooks = withCache(
 
     return mapColumnsToStructuredObjects(rows, bookMapping);
   },
-  10 * 60 * 1000, // 10 minutes
+  {
+    ttl: 30 * 60 * 1000, // 30 minutes
+    staleIfError: true,
+    watchKeys: [BOOKS_EDIT_KEY],
+  },
 );
 
 export const getStudents = withCache(
-  'students',
+  STUDENTS_CACHE_KEY,
   async (): Promise<IStudent[]> => {
     const rows = await readSheetRange(`${ORDERS_SHEET_NAME}!A4:C`);
     return mapRowsToObjects(rows)
@@ -60,50 +100,62 @@ export const getStudents = withCache(
       )
       .filter((student) => student.seat && student.number && student.name);
   },
-  10 * 60 * 1000, // 10 minutes
+  {
+    ttl: 30 * 60 * 1000, // 30 minutes
+    staleIfError: true,
+    watchKeys: [STUDENTS_EDIT_KEY],
+  },
 );
 
-export const getOrders = async () => {
-  const books = await getBooks();
-  const students = await getStudents();
-  const rows = await readSheetRange(`${ORDERS_SHEET_NAME}!D3:AA66`);
+export const getOrders = withCache(
+  ORDERS_CACHE_KEY,
+  async () => {
+    const books = await getBooks();
+    const students = await getStudents();
+    const rows = await readSheetRange(`${ORDERS_SHEET_NAME}!D3:AA66`);
 
-  const statusRows = rows[0];
-  const dataRows = rows.slice(2);
-  const orders: IOrder[] = [];
+    const statusRows = rows[0];
+    const dataRows = rows.slice(2);
+    const orders: IOrder[] = [];
 
-  for (let i = 0; i < statusRows.length; i += 3) {
-    const studentOrders: IStudentOrder[] = [];
-    for (let j = 0; j < dataRows.length; j++) {
-      let status: number = 0;
+    for (let i = 0; i < statusRows.length; i += 3) {
+      const studentOrders: IStudentOrder[] = [];
+      for (let j = 0; j < dataRows.length; j++) {
+        let status: number = 0;
 
-      // 是否訂購
-      if (dataRows[j][i] === 'O') status |= StudentOrderState.Ordered;
-      // 是否收款
-      if (dataRows[j][i + 1] === 'O') status |= StudentOrderState.Paid;
-      // 是否交付
-      if (dataRows[j][i + 2] === 'O') {
-        status |= StudentOrderState.Delivered;
+        // 是否訂購
+        if (dataRows[j][i] === 'O') status |= StudentOrderState.Ordered;
+        // 是否收款
+        if (dataRows[j][i + 1] === 'O') status |= StudentOrderState.Paid;
+        // 是否交付
+        if (dataRows[j][i + 2] === 'O') {
+          status |= StudentOrderState.Delivered;
+        }
+
+        studentOrders.push({ ...students[j], status });
       }
 
-      studentOrders.push({ ...students[j], status });
+      const book = books[i / 3];
+      const status = statusRows[i] as IOrder['status'];
+      if (!book || !status) {
+        continue;
+      }
+
+      const totalOrdered = studentOrders.filter(
+        (s) => s.status !== StudentOrderState.None,
+      ).length;
+
+      orders.push({ book, status, students: studentOrders, totalOrdered });
     }
 
-    const book = books[i / 3];
-    const status = statusRows[i] as IOrder['status'];
-    if (!book || !status) {
-      continue;
-    }
-
-    const totalOrdered = studentOrders.filter(
-      (s) => s.status !== StudentOrderState.None,
-    ).length;
-
-    orders.push({ book, status, students: studentOrders, totalOrdered });
-  }
-
-  return orders;
-};
+    return orders;
+  },
+  {
+    ttl: 2 * 60 * 1000, // 2 minutes
+    staleIfError: true,
+    watchKeys: [BOOKS_EDIT_KEY, STUDENTS_EDIT_KEY, ORDERS_EDIT_KEY],
+  },
+);
 
 export const getOrderByStudentNumber = async (studentNumber: string) => {
   const orders: IOrder[] = await getOrders();
@@ -157,6 +209,7 @@ export async function registerOrderByStudentNumber(
     `${ORDERS_SHEET_NAME}!${indexToColumnLetter(bookIndex * 3 + 3)}${studentIndex + 5}`,
     [['O']],
   );
+  notifyPurchaseSheetsEdited(['orders']);
 
   return {
     success: true,
@@ -233,6 +286,7 @@ export async function unregisterOrderByStudentNumber(
     `${ORDERS_SHEET_NAME}!${startColumn}${row}:${endColumn}${row}`,
     [['', '', '']],
   );
+  notifyPurchaseSheetsEdited(['orders']);
 
   return {
     success: true,
