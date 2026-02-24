@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ez-book-config
-  namespace: ez-book
-data:
-  NODE_ENV: "production"
-  PORT: "3000"

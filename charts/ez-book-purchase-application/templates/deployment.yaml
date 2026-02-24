@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ez-book-purchase-application.fullname" . }}
+  labels:
+    {{- include "ez-book-purchase-application.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ez-book-purchase-application.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ez-book-purchase-application.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ include "ez-book-purchase-application.name" . }}
+          image: '{{ .Values.image.repository }}:{{ .Values.image.tag }}'
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: GOOGLE_SHEETS_SPREADSHEET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ez-book-purchase-application.secretName" . }}
+                  key: GOOGLE_SHEETS_SPREADSHEET_ID
+            - name: GOOGLE_SHEETS_LOGS_SPREADSHEET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ez-book-purchase-application.secretName" . }}
+                  key: GOOGLE_SHEETS_LOGS_SPREADSHEET_ID
+            - name: GOOGLE_SHEETS_CLIENT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ez-book-purchase-application.secretName" . }}
+                  key: GOOGLE_SHEETS_CLIENT_EMAIL
+            - name: GOOGLE_SHEETS_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ez-book-purchase-application.secretName" . }}
+                  key: GOOGLE_SHEETS_PRIVATE_KEY
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

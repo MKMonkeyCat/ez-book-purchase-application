@@ -77,36 +77,3 @@ Make sure to deploy the output of `npm run build`
 │   ├── client/    # Static assets
 │   └── server/    # Server-side code
 ```
-
-### k3s Deployment
-
-Kubernetes manifests for k3s are provided in `k8s/`.
-
-1. Build and push image (replace registry path/tag):
-
-```bash
-docker build -t ghcr.io/mkmonkeycat/ez-book-purchase-application:latest .
-docker push ghcr.io/mkmonkeycat/ez-book-purchase-application:latest
-```
-
-2. Update image in `k8s/deployment.yaml`.
-
-3. Create secret file from example and fill real values:
-
-```bash
-cp k8s/secret.example.yaml k8s/secret.yaml
-```
-
-4. Apply resources:
-
-```bash
-kubectl apply -f k8s/secret.yaml
-kubectl apply -k k8s
-```
-
-5. (Optional) Add local DNS entry for test host in `k8s/ingress.yaml`:
-
-```bash
-# example
-<your-k3s-node-ip> ez-book.local
-```

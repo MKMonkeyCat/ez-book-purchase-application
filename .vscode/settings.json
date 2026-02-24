@@ -1,0 +1,10 @@
+{
+  "files.associations": {
+    "charts/**/templates/*.yaml": "helm-template",
+    "charts/**/templates/*.tpl": "helm-template"
+  },
+  "yaml.validate": false,
+  "[helm-template]": {
+    "editor.formatOnSave": false
+  }
+}

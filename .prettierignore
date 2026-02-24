@@ -1,0 +1,3 @@
+# Helm templates (Go template syntax) should not be formatted as plain YAML
+charts/**/templates/*.yaml
+charts/**/templates/*.tpl
