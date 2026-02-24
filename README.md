@@ -48,12 +48,20 @@ npm run build
 
 To build and run using Docker:
 
-```bash
+````bash
 docker build -t my-app .
 
-# Run the container
+# Run the c
+## #
+
+ ()
+
+1. Update `charts/ez-book-purchase-application/values.yaml` with your Google Sheets credentials.
+2. Install Helm if you haven't already: https://helm.sh/docs/intro/install/
+```bash
+ontainer
 docker run -p 3000:3000 my-app
-```
+````
 
 The containerized application can be deployed to any platform that supports Docker, including:
 
