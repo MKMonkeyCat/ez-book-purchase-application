@@ -85,8 +85,8 @@ Kubernetes manifests for k3s are provided in `k8s/`.
 1. Build and push image (replace registry path/tag):
 
 ```bash
-docker build -t ghcr.io/your-org/ez-book-purchase-application:latest .
-docker push ghcr.io/your-org/ez-book-purchase-application:latest
+docker build -t ghcr.io/mkmonkeycat/ez-book-purchase-application:latest .
+docker push ghcr.io/mkmonkeycat/ez-book-purchase-application:latest
 ```
 
 2. Update image in `k8s/deployment.yaml`.
@@ -110,58 +110,3 @@ kubectl apply -k k8s
 # example
 <your-k3s-node-ip> ez-book.local
 ```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
-## Google Sheets as Database
-
-This project includes server-side Google Sheets utils in `app/.server/google-sheets.ts`.
-
-### 1) Create `.env`
-
-Copy `.env.example` to `.env` and fill in values:
-
-```bash
-cp .env.example .env
-```
-
-- `GOOGLE_SHEETS_SPREADSHEET_ID`: target spreadsheet ID
-- `GOOGLE_SHEETS_CLIENT_EMAIL`: service account email
-- `GOOGLE_SHEETS_PRIVATE_KEY`: service account private key (keep `\n` line breaks)
-
-### 2) Share spreadsheet permission
-
-Share your Google spreadsheet with `GOOGLE_SHEETS_CLIENT_EMAIL` and give it **Editor** permission.
-
-### 3) Use in route loaders/actions
-
-```ts
-import { appendSheetRow, readSheetRange } from '~/.server/google-sheets';
-
-// Read rows
-const rows = await readSheetRange('Orders!A1:E');
-
-// Append one row
-await appendSheetRow('Orders!A:E', [
-  new Date().toISOString(),
-  'book-001',
-  'Clean Code',
-  1,
-  399,
-]);
-```
-
-Available utils:
-
-- `readSheetRange(range)`
-- `appendSheetRow(range, row)`
-- `appendSheetRows(range, rows)`
-- `updateSheetRange(range, rows)`
-- `clearSheetRange(range)`
-- `mapRowsToObjects(rows)`
-
----
-
-Built with ❤️ using React Router.
