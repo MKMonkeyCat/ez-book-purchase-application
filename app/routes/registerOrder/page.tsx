@@ -174,7 +174,7 @@ export async function action({ request }: Route.ActionArgs) {
   const studentNumber = String(formData.get('studentNumber') ?? '');
   const bookIsbn = String(formData.get('bookIsbn') ?? '');
 
-  const IP =
+  const ip =
     request.headers.get('x-forwarded-for') ||
     request.headers.get('remote_addr') ||
     '';
@@ -185,8 +185,8 @@ export async function action({ request }: Route.ActionArgs) {
     logRegistration({
       success: false,
       message: '機器人偵測',
-      ip: IP,
-      userAgent: userAgent,
+      ip,
+      userAgent,
     });
     return { success: false, message: '請勿使用機器人進行訂書登記。' };
   }
@@ -201,8 +201,8 @@ export async function action({ request }: Route.ActionArgs) {
     book: result.book,
     success: result.success,
     message: result.message,
-    ip: IP,
-    userAgent: userAgent,
+    ip,
+    userAgent,
   });
 
   return { success: result.success, message: result.message };

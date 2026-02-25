@@ -1,11 +1,11 @@
 import type { Route } from './+types/page';
-import { Form, useNavigation } from 'react-router';
+import { Form, Link as RouterLink, useNavigation } from 'react-router';
 import {
   Alert,
   Box,
   Button,
   Container,
-  Link,
+  Link as MuiLink,
   Paper,
   TextField,
   Typography,
@@ -48,12 +48,12 @@ export default function Home({}: Route.ComponentProps) {
           <del>(這網站孕期半天，所以難免有問題XD)</del>
           <br />
           試算表:
-          <Link
+          <MuiLink
             href="https://docs.google.com/spreadsheets/d/1vMX2u9ebxsqi3Gr3q_qxxCLu9tuZVQHwIdFeLq1cqaw/edit?usp=sharing"
             target="_blank"
           >
             點此查看試算表
-          </Link>
+          </MuiLink>
         </Alert>
 
         <Form
@@ -77,6 +77,15 @@ export default function Home({}: Route.ComponentProps) {
             disabled={isSubmitting}
           >
             下一步
+          </Button>
+
+          <Button
+            component={RouterLink}
+            to="/admin/login"
+            variant="outlined"
+            fullWidth
+          >
+            管理員登入
           </Button>
         </Form>
       </Paper>

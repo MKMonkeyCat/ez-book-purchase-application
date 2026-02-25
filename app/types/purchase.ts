@@ -42,3 +42,25 @@ export interface IOrder {
   students: IStudentOrder[];
   totalOrdered: number;
 }
+
+export interface IRegisterOrderInput {
+  studentNumber: string;
+  bookIsbn: string;
+}
+
+export interface IUpdateStudentOrderStatusInput {
+  studentNumber: string;
+  bookIsbn: string;
+  ordered: boolean;
+  paid: boolean;
+  delivered: boolean;
+}
+
+export type StudentOrderStatusField = 'ordered' | 'paid' | 'delivered';
+
+export interface IUpdateStudentOrderStatusFieldInput {
+  studentNumber: string;
+  bookIsbn: string;
+  field: StudentOrderStatusField;
+  checked: boolean;
+}

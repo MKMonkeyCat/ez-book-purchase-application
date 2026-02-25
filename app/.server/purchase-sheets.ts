@@ -11,8 +11,11 @@ import {
   StudentOrderState,
   type IBook,
   type IOrder,
+  type IRegisterOrderInput,
   type IStudent,
   type IStudentOrder,
+  type IUpdateStudentOrderStatusFieldInput,
+  type StudentOrderStatusField,
 } from '~/types/purchase';
 
 export const LOGS_SHEET_ID =
@@ -169,11 +172,6 @@ export const getOrderByStudentNumber = async (studentNumber: string) => {
   return studentOrder;
 };
 
-export interface IRegisterOrderInput {
-  studentNumber: string;
-  bookIsbn: string;
-}
-
 export async function registerOrderByStudentNumber(
   input: IRegisterOrderInput,
 ): Promise<{
@@ -296,6 +294,82 @@ export async function unregisterOrderByStudentNumber(
   };
 }
 
+export async function updateStudentOrderStatusField(
+  input: IUpdateStudentOrderStatusFieldInput,
+): Promise<{
+  success: boolean;
+  message: string;
+  student?: IStudent;
+  book?: IBook;
+}> {
+  const studentNumber = input.studentNumber.trim();
+  const bookIsbn = input.bookIsbn.trim();
+
+  if (!studentNumber || !bookIsbn) {
+    return { success: false, message: '學號與 ISBN 為必填' };
+  }
+
+  const [students, books] = await Promise.all([getStudents(), getBooks()]);
+
+  const studentIndex = students.findIndex(
+    (item) => item.number === studentNumber,
+  );
+  if (studentIndex === -1) {
+    return { success: false, message: '查無此學號，請確認後再試' };
+  }
+  const student = students[studentIndex];
+
+  const bookIndex = books.findIndex((item) => item.isbn === bookIsbn);
+  if (bookIndex === -1) {
+    return { success: false, message: '查無此書籍 ISBN，請重新選擇' };
+  }
+  const book = books[bookIndex];
+
+  const fieldOffsetByName: Record<StudentOrderStatusField, number> = {
+    ordered: 0,
+    paid: 1,
+    delivered: 2,
+  };
+
+  const row = studentIndex + 5;
+  const column = indexToColumnLetter(
+    bookIndex * 3 + 3 + fieldOffsetByName[input.field],
+  );
+
+  await updateSheetRange(`${ORDERS_SHEET_NAME}!${column}${row}`, [
+    [input.checked ? 'O' : ''],
+  ]);
+  notifyPurchaseSheetsEdited(['orders']);
+
+  const fieldTextByName = {
+    ordered: '已訂購',
+    paid: '已付款',
+    delivered: '已交付',
+  };
+
+  return {
+    success: true,
+    message: `已更新 ${student.name}「${book.name}」的${fieldTextByName[input.field]}狀態`,
+    student,
+    book,
+  };
+}
+
+export const appendLog = async (
+  data: [
+    user: string,
+    book: string,
+    success: string,
+    ip: string,
+    userAgent: string,
+    message: string,
+  ],
+) => {
+  await appendSheetRow(BASE_SHEET_NAME, [new Date().toUTCString(), ...data], {
+    config: { spreadsheetId: LOGS_SHEET_ID },
+  });
+};
+
 export const logRegistration = async ({
   student,
   book,
@@ -307,23 +381,49 @@ export const logRegistration = async ({
   student?: IStudent;
   book?: IBook;
   success: boolean;
-  ip?: string;
-  userAgent?: string;
-  message?: string;
+  ip: string;
+  userAgent: string;
+  message: string;
 }) => {
-  await appendSheetRow(
-    BASE_SHEET_NAME,
-    [
-      new Date().toISOString(),
-      student ? `${student.number}:${student.name}` : '',
-      book ? `${book.isbn}:${book.name}` : '',
-      success ? '成功' : '失敗',
-      ip ?? '',
-      userAgent ?? '',
-      message ?? '',
-    ],
-    { config: { spreadsheetId: LOGS_SHEET_ID } },
-  );
+  await appendLog([
+    student ? `${student.number}:${student.name}` : '',
+    book ? `${book.isbn}:${book.name}` : '',
+    success ? '成功' : '失敗',
+    ip,
+    userAgent,
+    message,
+  ]);
+};
+
+export const logAdminAudit = async ({
+  adminEmail,
+  studentNumber,
+  bookIsbn,
+  field,
+  checked,
+  success,
+  ip,
+  userAgent,
+  message,
+}: {
+  adminEmail: string;
+  studentNumber: string;
+  bookIsbn: string;
+  field: StudentOrderStatusField;
+  checked: boolean;
+  success: boolean;
+  ip: string;
+  userAgent: string;
+  message: string;
+}) => {
+  await appendLog([
+    `admin:${adminEmail}`,
+    `${studentNumber} / ${bookIsbn} / ${field} -> ${checked}`,
+    success ? '成功' : '失敗',
+    ip,
+    userAgent,
+    message,
+  ]);
 };
 
 export const indexToColumnLetter = (index: number): string => {
