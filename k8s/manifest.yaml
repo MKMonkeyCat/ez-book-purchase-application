@@ -74,6 +74,31 @@ spec:
                 secretKeyRef:
                   name: ez-book-purchase-env
                   key: GOOGLE_SHEETS_PRIVATE_KEY
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ez-book-purchase-env
+                  key: SESSION_SECRET
+            - name: GOOGLE_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ez-book-purchase-env
+                  key: GOOGLE_OAUTH_CLIENT_ID
+            - name: GOOGLE_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ez-book-purchase-env
+                  key: GOOGLE_OAUTH_CLIENT_SECRET
+            - name: GOOGLE_OAUTH_REDIRECT_URI
+              valueFrom:
+                secretKeyRef:
+                  name: ez-book-purchase-env
+                  key: GOOGLE_OAUTH_REDIRECT_URI
+            - name: ADMIN_EMAILS
+              valueFrom:
+                secretKeyRef:
+                  name: ez-book-purchase-env
+                  key: ADMIN_EMAILS
           livenessProbe:
             httpGet:
               path: /
