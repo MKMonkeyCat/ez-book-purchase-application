@@ -23,11 +23,7 @@ function getRequiredEnv(name: string): string {
     );
   }
 
-  return value;
-}
-
-function getPrivateKey(): string {
-  return getRequiredEnv('GOOGLE_SHEETS_PRIVATE_KEY').replace(/\\n/g, '\n');
+  return value.trim().replace(/\\n/g, '\n');
 }
 
 function getSpreadsheetId(config?: GoogleSheetsConfig): string {
@@ -38,7 +34,7 @@ function getSpreadsheetId(config?: GoogleSheetsConfig): string {
 
 async function createSheetsClient(): Promise<sheets_v4.Sheets> {
   const clientEmail = getRequiredEnv('GOOGLE_SHEETS_CLIENT_EMAIL');
-  const privateKey = getPrivateKey();
+  const privateKey = getRequiredEnv('GOOGLE_SHEETS_PRIVATE_KEY');
 
   const auth = new JWT({
     email: clientEmail,
