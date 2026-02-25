@@ -49,7 +49,6 @@ spec:
       containers:
         - name: ez-book-purchase-application
           image: ghcr.io/mkmonkeycat/ez-book-purchase-application:latest
-          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3000
