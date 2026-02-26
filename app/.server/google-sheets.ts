@@ -68,6 +68,25 @@ export async function readSheetRange(
   return (data.values as string[][] | undefined) ?? [];
 }
 
+export async function readSheetRanges(
+  ranges: string[],
+  config?: GoogleSheetsConfig,
+): Promise<string[][][]> {
+  if (ranges.length === 0) return [];
+
+  const sheets = await getGoogleSheetsClient();
+  const spreadsheetId = getSpreadsheetId(config);
+  const { data } = await sheets.spreadsheets.values.batchGet({
+    spreadsheetId,
+    ranges,
+  });
+
+  const valueRanges = data.valueRanges ?? [];
+  return ranges.map((_, index) => {
+    return (valueRanges[index]?.values as string[][] | undefined) ?? [];
+  });
+}
+
 export async function appendSheetRows(
   range: string,
   rows: Array<Array<string | number | boolean | null>>,

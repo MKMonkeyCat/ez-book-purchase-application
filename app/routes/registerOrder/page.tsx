@@ -23,15 +23,14 @@ import {
 } from '~/types/purchase';
 import { isbot } from 'isbot';
 
-const formatPrice = (value: string) => {
-  if (!value) {
-    return '';
+const formatCurrency = (value: number | string) => {
+  if (typeof value === 'string') {
+    const parsed = Number(value.replaceAll(',', '').trim());
+    if (!Number.isFinite(parsed)) return '-';
+    value = parsed;
   }
-  return `NT$ ${value}`;
+  return `NT$ ${value.toLocaleString('zh-TW')}`;
 };
-
-const formatCurrency = (value: number) =>
-  `NT$ ${value.toLocaleString('zh-TW')}`;
 
 const parsePrice = (value?: string) => {
   if (!value) {
@@ -76,7 +75,7 @@ const getPriceLabels = (book: IBook, totalOrdered?: number) => {
   const priceItems: { label: string; priority: number }[] = [];
   if (book.onePrice) {
     priceItems.push({
-      label: `單購價 ${formatPrice(book.onePrice)}`,
+      label: `單購價 ${formatCurrency(book.onePrice)}`,
       priority: reachedGroupThreshold ? 2 : 1,
     });
   }
@@ -85,14 +84,14 @@ const getPriceLabels = (book: IBook, totalOrdered?: number) => {
     const thresholdText = minQuantity > 0 ? ` (滿${minQuantity}本)` : '';
 
     priceItems.push({
-      label: `團體價 ${formatPrice(groupPrice)}${thresholdText}`,
+      label: `團體價 ${formatCurrency(groupPrice)}${thresholdText}`,
       priority: reachedGroupThreshold ? 1 : 2,
     });
   }
 
   if (book.basePrice) {
     priceItems.push({
-      label: `定價 ${formatPrice(book.basePrice)}`,
+      label: `定價 ${formatCurrency(book.basePrice)}`,
       priority: 3,
     });
   }

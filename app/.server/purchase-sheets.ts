@@ -3,6 +3,7 @@ import {
   mapColumnsToStructuredObjects,
   mapRowsToObjects,
   readSheetRange,
+  readSheetRanges,
   updateSheetRange,
 } from './google-sheets';
 import { notifyCacheEdit, withCache } from './utils/cache';
@@ -92,7 +93,11 @@ export const getBooks = withCache(
 export const getStudents = withCache(
   STUDENTS_CACHE_KEY,
   async (): Promise<IStudent[]> => {
-    const rows = await readSheetRange(`${ORDERS_SHEET_NAME}!A4:C`);
+    const [rowsPart1, rowsPart2] = await readSheetRanges([
+      `${ORDERS_SHEET_NAME}!A4:C`,
+      `${ORDERS_SHEET_NAME}!A73:C`,
+    ]);
+    const rows = [...rowsPart1, ...rowsPart2];
     return mapRowsToObjects(rows)
       .map(
         (row): IStudent => ({

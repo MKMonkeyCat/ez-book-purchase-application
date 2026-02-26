@@ -23,10 +23,24 @@ export default function Home({}: Route.ComponentProps) {
   const isSubmitting = navigation.state === 'submitting';
 
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
+    <Container
+      maxWidth="sm"
+      sx={{
+        py: 6,
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
       <Paper
         variant="outlined"
-        sx={{ p: 4, display: 'flex', flexDirection: 'column', gap: 3 }}
+        sx={{
+          p: { xs: 2, sm: 4 },
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+        }}
       >
         <Box>
           <Typography variant="h4" fontWeight={600} gutterBottom>
