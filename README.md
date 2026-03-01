@@ -1,42 +1,24 @@
-# Welcome to React Router!
+# ez-book-purchase-application
 
-A modern, production-ready template for building full-stack React applications using React Router.
-
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
-
-## Features
-
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+Book purchase application built with React Router.
 
 ## Getting Started
 
-### Installation
-
-Install the dependencies:
+### Install dependencies
 
 ```bash
 npm install
 ```
 
-### Development
-
-Start the development server with HMR:
+### Start development server
 
 ```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+App runs at `http://localhost:5173`.
 
-## Building for Production
-
-Create a production build:
+## Build
 
 ```bash
 npm run build
@@ -44,44 +26,59 @@ npm run build
 
 ## Deployment
 
-### Docker Deployment
+### Docker
 
-To build and run using Docker:
-
-````bash
-docker build -t my-app .
-
-# Run the c
-## #
-
- ()
-
-1. Update `charts/ez-book-purchase-application/values.yaml` with your Google Sheets credentials.
-2. Install Helm if you haven't already: https://helm.sh/docs/intro/install/
 ```bash
-ontainer
-docker run -p 3000:3000 my-app
-````
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
+docker build -t ez-book-purchase-application:latest .
+docker run -p 3000:3000 ez-book-purchase-application:latest
 ```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
+
+### Helm (Kubernetes)
+
+Helm chart is in `charts/ez-book-purchase-application`.
+
+1. Prepare values file:
+
+```bash
+cp charts/ez-book-purchase-application/values.yaml values.prod.yaml
 ```
+
+2. Edit `values.prod.yaml`:
+   - Set `image.repository` to your image registry.
+   - Set `image.tag` to the image tag you pushed.
+   - Fill `env` values:
+     - `GOOGLE_SHEETS_SPREADSHEET_ID`
+     - `GOOGLE_SHEETS_LOGS_SPREADSHEET_ID`
+     - `GOOGLE_SHEETS_CLIENT_EMAIL`
+     - `GOOGLE_SHEETS_PRIVATE_KEY`
+
+3. Install/upgrade:
+
+```bash
+helm upgrade --install ez-book-purchase-application \
+  ./charts/ez-book-purchase-application \
+  -f values.prod.yaml \
+  --namespace ez-book \
+  --create-namespace
+```
+
+4. Check resources:
+
+```bash
+kubectl get all -n ez-book
+```
+
+If ingress is disabled, use port-forward:
+
+```bash
+kubectl -n ez-book port-forward svc/ez-book-purchase-application-ez-book-purchase-application 8080:3000
+```
+
+## Runtime env vars
+
+Required environment variables:
+
+- `GOOGLE_SHEETS_SPREADSHEET_ID`
+- `GOOGLE_SHEETS_LOGS_SPREADSHEET_ID`
+- `GOOGLE_SHEETS_CLIENT_EMAIL`
+- `GOOGLE_SHEETS_PRIVATE_KEY`

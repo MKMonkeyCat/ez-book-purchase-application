@@ -5,58 +5,64 @@ metadata:
   labels:
     {{- include "ez-book-purchase-application.labels" . | nindent 4 }}
 spec:
+  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "ez-book-purchase-application.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
-        {{- include "ez-book-purchase-application.selectorLabels" . | nindent 8 }}
+        {{- include "ez-book-purchase-application.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ez-book-purchase-application.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
-        - name: {{ include "ez-book-purchase-application.name" . }}
-          image: '{{ .Values.image.repository }}:{{ .Values.image.tag }}'
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.targetPort }}
+              containerPort: {{ .Values.service.port }}
               protocol: TCP
-          env:
-            - name: GOOGLE_SHEETS_SPREADSHEET_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ez-book-purchase-application.secretName" . }}
-                  key: GOOGLE_SHEETS_SPREADSHEET_ID
-            - name: GOOGLE_SHEETS_LOGS_SPREADSHEET_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ez-book-purchase-application.secretName" . }}
-                  key: GOOGLE_SHEETS_LOGS_SPREADSHEET_ID
-            - name: GOOGLE_SHEETS_CLIENT_EMAIL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ez-book-purchase-application.secretName" . }}
-                  key: GOOGLE_SHEETS_CLIENT_EMAIL
-            - name: GOOGLE_SHEETS_PRIVATE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ez-book-purchase-application.secretName" . }}
-                  key: GOOGLE_SHEETS_PRIVATE_KEY
+          envFrom:
+            - secretRef:
+                name: {{ include "ez-book-purchase-application.fullname" . }}-env
           livenessProbe:
-            httpGet:
-              path: /
-              port: http
-            initialDelaySeconds: 20
-            periodSeconds: 15
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
-            httpGet:
-              path: /
-              port: http
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- with .Values.resources }}
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
