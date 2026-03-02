@@ -27,8 +27,6 @@ app.use(
     getLoadContext(req) {
       const ip = req.ip;
 
-      console.log(req.headers);
-
       return {
         clientIp: ip && net.isIP(ip) ? ip : 'unknown',
       };
