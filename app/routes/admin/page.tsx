@@ -1,6 +1,6 @@
 import type { Route } from './+types/page';
-import { Form, redirect, useNavigation } from 'react-router';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { Form, useNavigation } from 'react-router';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -15,11 +15,35 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import {
-  StudentOrderState,
-  type StudentOrderStatusField,
-} from '~/types/purchase';
+import BulkPaidActions from './BulkPaidActions';
+import BookSelector from './BookSelector';
 import MemoOrderStatusForm from './OrderStatusForm';
+import { handleAdminPageAction, loadAdminPageData } from './server';
+import {
+  buildStats,
+  buildStudentOptions,
+  filterAndSortRows,
+  findSingleStudentNumber,
+  getBulkPayBookIsbns,
+  getBulkUnpayBookIsbns,
+  getSingleStudentUnpaidAmount,
+  sortLabelMap,
+  type RowFilter,
+  type SortBy,
+  type SortDirection,
+} from './view-model';
+import { formatCurrency } from '~/utils/pricing';
+import type { AdminOrderRow, SelectableBookOption } from './types';
+
+type PageLoaderData = {
+  user?: { email?: string };
+  orderRows?: AdminOrderRow[];
+};
+
+type PageActionData = {
+  success?: boolean;
+  message?: string;
+};
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -28,121 +52,26 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-const hasFlag = (value: number, flag: StudentOrderState) =>
-  (value & flag) === flag;
-
-type RowFilter = 'all' | 'unpaid' | 'undelivered';
-type SortDirection = 'asc' | 'desc';
-
-const sortLabelMap = {
-  subject: '科目',
-  bookName: '書名',
-  studentNumber: '學號',
-  studentName: '姓名',
-  paid: '付款狀態',
-  delivered: '交付狀態',
-};
-
-type SortBy = keyof typeof sortLabelMap;
-
 export async function loader({ request }: Route.LoaderArgs) {
-  const { requireAdminUser } = await import('~/.server/admin-auth');
-  const { getOrders } = await import('~/.server/purchase-sheets');
-
-  const user = await requireAdminUser(request);
-  const orders = await getOrders();
-
-  const orderRows = orders.flatMap(({ book, students }) =>
-    students
-      .filter((student) => student.status !== StudentOrderState.None)
-      .map((student) => ({
-        bookIsbn: book.isbn,
-        bookName: book.name,
-        subject: book.subject,
-        studentNumber: student.number,
-        studentName: student.name,
-        ordered: hasFlag(student.status, StudentOrderState.Ordered),
-        paid: hasFlag(student.status, StudentOrderState.Paid),
-        delivered: hasFlag(student.status, StudentOrderState.Delivered),
-      })),
-  );
-
-  return { user, orderRows };
+  return loadAdminPageData(request);
 }
 
-export async function action({ request }: Route.ActionArgs) {
-  const { requireAdminUser, commitAdminLogout } =
-    await import('~/.server/admin-auth');
-  const { updateStudentOrderStatusField, logAdminAudit } =
-    await import('~/.server/purchase-sheets');
-
-  const adminUser = await requireAdminUser(request);
-
-  const formData = await request.formData();
-  const intent = String(formData.get('intent') ?? 'update-status');
-
-  if (intent === 'logout') {
-    const setCookie = await commitAdminLogout(request);
-    return redirect('/admin/login', { headers: { 'Set-Cookie': setCookie } });
-  }
-
-  const studentNumber = String(formData.get('studentNumber') ?? '');
-  const bookIsbn = String(formData.get('bookIsbn') ?? '');
-  const field = String(formData.get('field') ?? '') as StudentOrderStatusField;
-  const checked = String(formData.get('checked') ?? 'false') === 'true';
-
-  const ip =
-    request.headers.get('x-forwarded-for') ||
-    request.headers.get('remote_addr') ||
-    '';
-  const userAgent = request.headers.get('user-agent') || '';
-
-  if (!['ordered', 'paid', 'delivered'].includes(field)) {
-    await logAdminAudit({
-      adminEmail: adminUser.email,
-      studentNumber,
-      bookIsbn,
-      field: 'ordered',
-      checked,
-      success: false,
-      ip,
-      userAgent,
-      message: `無效的狀態欄位: ${field}`,
-    });
-
-    return { success: false, message: '無效的狀態欄位' };
-  }
-
-  const result = await updateStudentOrderStatusField({
-    studentNumber,
-    bookIsbn,
-    field,
-    checked,
-  });
-
-  await logAdminAudit({
-    adminEmail: adminUser.email,
-    studentNumber,
-    bookIsbn,
-    field,
-    checked,
-    success: result.success,
-    ip,
-    userAgent,
-    message: result.message,
-  });
-
-  return result;
+export async function action({ request, context }: Route.ActionArgs) {
+  return handleAdminPageAction(request, context.clientIp);
 }
 
 export default function AdminPage({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
+  const pageLoaderData = loaderData as PageLoaderData | undefined;
+  const orderRows = pageLoaderData?.orderRows ?? [];
+  const userEmail = pageLoaderData?.user?.email ?? '';
+  const pageActionData = actionData as PageActionData | undefined;
+
   const [studentKeyword, setStudentKeyword] = useState('');
   const deferredStudentKeyword = useDeferredValue(studentKeyword);
-  const [bookKeyword, setBookKeyword] = useState('');
-  const deferredBookKeyword = useDeferredValue(bookKeyword);
+  const [selectedBookIsbns, setSelectedBookIsbns] = useState<string[]>([]);
   const [filter, setFilter] = useState<RowFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('subject');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -161,104 +90,100 @@ export default function AdminPage({
       : '';
 
   const isLogoutSubmitting = isSubmitting && submittingIntent === 'logout';
+  const isBulkPaySubmitting =
+    isSubmitting && submittingIntent === 'bulk-pay-student';
+  const isBulkUnpaySubmitting =
+    isSubmitting && submittingIntent === 'bulk-unpay-student';
+  const isBulkStatusSubmitting = isBulkPaySubmitting || isBulkUnpaySubmitting;
 
-  const stats = useMemo(() => {
-    const total = loaderData.orderRows.length;
-    const paid = loaderData.orderRows.filter((row) => row.paid).length;
-    const delivered = loaderData.orderRows.filter(
-      (row) => row.delivered,
-    ).length;
+  const stats = useMemo(() => buildStats(orderRows), [orderRows]);
 
-    return { total, unpaid: total - paid, undelivered: total - delivered };
-  }, [loaderData.orderRows]);
+  const studentOptions = useMemo(
+    () => buildStudentOptions(orderRows),
+    [orderRows],
+  );
 
-  const bookOptions = useMemo(() => {
-    const optionSet = new Set<string>();
+  const baseFilteredRows = useMemo(
+    () =>
+      filterAndSortRows({
+        rows: orderRows,
+        filter,
+        studentKeyword: deferredStudentKeyword,
+        bookKeyword: '',
+        sortBy,
+        sortDirection,
+      }),
+    [filter, deferredStudentKeyword, sortBy, sortDirection, orderRows],
+  );
 
-    for (const row of loaderData.orderRows) {
-      optionSet.add(row.subject);
-      optionSet.add(row.bookName);
-      optionSet.add(row.bookIsbn);
+  const selectableBookOptions = useMemo<SelectableBookOption[]>(() => {
+    const optionMap = new Map<string, SelectableBookOption>();
+
+    for (const row of baseFilteredRows) {
+      if (optionMap.has(row.bookIsbn)) continue;
+
+      optionMap.set(row.bookIsbn, {
+        isbn: row.bookIsbn,
+        label: `${row.subject}｜${row.bookName}｜${row.bookIsbn}`,
+      });
     }
 
-    return [...optionSet];
-  }, [loaderData.orderRows]);
+    return Array.from(optionMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label, 'zh-Hant'),
+    );
+  }, [baseFilteredRows]);
 
-  const studentOptions = useMemo(() => {
-    const optionSet = new Set<string>();
+  useEffect(() => {
+    const availableIsbnSet = new Set(
+      baseFilteredRows.map((row) => row.bookIsbn),
+    );
 
-    for (const row of loaderData.orderRows) {
-      optionSet.add(row.studentNumber);
-      optionSet.add(row.studentName);
-    }
-
-    return [...optionSet];
-  }, [loaderData.orderRows]);
+    setSelectedBookIsbns((current) =>
+      current.filter((isbn) => availableIsbnSet.has(isbn)),
+    );
+  }, [baseFilteredRows]);
 
   const filteredRows = useMemo(() => {
-    const normalizedStudentKeyword = deferredStudentKeyword
-      .trim()
-      .toLowerCase();
-    const normalizedBookKeyword = deferredBookKeyword.trim().toLowerCase();
+    if (selectedBookIsbns.length === 0) {
+      return baseFilteredRows;
+    }
 
-    return loaderData.orderRows
-      .filter((row) => {
-        if (filter === 'unpaid' && row.paid) return false;
-        if (filter === 'undelivered' && row.delivered) return false;
-
-        if (normalizedStudentKeyword) {
-          const studentText = `${row.studentNumber} ${row.studentName}`
-            .toLowerCase()
-            .replaceAll('\n', '');
-          if (!studentText.includes(normalizedStudentKeyword)) return false;
-        }
-
-        if (normalizedBookKeyword) {
-          const bookText = `${row.subject} ${row.bookName} ${row.bookIsbn}`
-            .toLowerCase()
-            .replaceAll('\n', '');
-          console.log(normalizedBookKeyword, bookText);
-          if (!bookText.includes(normalizedBookKeyword)) return false;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        let bySortField: number;
-        if (sortBy === 'studentNumber') {
-          bySortField = a.studentNumber.localeCompare(b.studentNumber);
-        } else if (sortBy === 'studentName') {
-          bySortField = a.studentName.localeCompare(b.studentName, 'zh-Hant');
-        } else if (sortBy === 'bookName') {
-          bySortField = a.bookName.localeCompare(b.bookName, 'zh-Hant');
-        } else {
-          bySortField = a.subject.localeCompare(b.subject, 'zh-Hant');
-        }
-
-        if (bySortField !== 0) {
-          return sortDirection === 'asc' ? bySortField : -bySortField;
-        }
-
-        const bySubject = a.subject.localeCompare(b.subject, 'zh-Hant');
-        if (bySubject !== 0) return bySubject;
-
-        const byBook = a.bookName.localeCompare(b.bookName, 'zh-Hant');
-        if (byBook !== 0) return byBook;
-
-        return a.studentNumber.localeCompare(b.studentNumber);
-      });
-  }, [
-    filter,
-    deferredStudentKeyword,
-    deferredBookKeyword,
-    sortBy,
-    sortDirection,
-    loaderData.orderRows,
-  ]);
+    return baseFilteredRows.filter((row) =>
+      selectedBookIsbns.includes(row.bookIsbn),
+    );
+  }, [baseFilteredRows, selectedBookIsbns]);
 
   const toggleSortDirection = () => {
     setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
   };
+
+  const singleStudentNumberInFilteredRows = useMemo(
+    () => findSingleStudentNumber(filteredRows),
+    [filteredRows],
+  );
+
+  const bulkPayBookIsbns = useMemo(
+    () => getBulkPayBookIsbns(filteredRows),
+    [filteredRows],
+  );
+
+  const bulkUnpayBookIsbns = useMemo(
+    () => getBulkUnpayBookIsbns(filteredRows),
+    [filteredRows],
+  );
+
+  const singleStudentUnpaidAmount = useMemo(
+    () => getSingleStudentUnpaidAmount(filteredRows),
+    [filteredRows],
+  );
+
+  const selectedBookOptions = useMemo(
+    () =>
+      selectableBookOptions.filter((option) =>
+        selectedBookIsbns.includes(option.isbn),
+      ),
+    [selectableBookOptions, selectedBookIsbns],
+  );
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -277,7 +202,7 @@ export default function AdminPage({
               訂書管理頁
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              登入帳號：{loaderData.user.email}
+              登入帳號：{userEmail}
             </Typography>
           </Box>
 
@@ -306,22 +231,10 @@ export default function AdminPage({
         </Stack>
 
         <Stack spacing={1.5}>
-          <Autocomplete
-            freeSolo
-            size="small"
-            options={bookOptions}
-            inputValue={bookKeyword}
-            onInputChange={(_, newInputValue) => {
-              setBookKeyword(newInputValue);
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="書籍搜尋（科目 / 書名 / ISBN）"
-                placeholder="例如：微積分、978..."
-                helperText="用科目、書名或 ISBN 篩選"
-              />
-            )}
+          <BookSelector
+            options={selectableBookOptions}
+            value={selectedBookOptions}
+            onChange={setSelectedBookIsbns}
           />
 
           <Autocomplete
@@ -400,7 +313,7 @@ export default function AdminPage({
             }}
           >
             <Typography variant="body2" color="text.secondary">
-              顯示 {filteredRows.length} / {loaderData.orderRows.length} 筆
+              顯示 {filteredRows.length} / {orderRows.length} 筆
             </Typography>
 
             <Typography variant="body2" color="text.secondary">
@@ -408,20 +321,46 @@ export default function AdminPage({
               {sortDirection === 'asc' ? '升冪' : '降冪'}排序
             </Typography>
           </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            {singleStudentUnpaidAmount && (
+              <Typography variant="body2" color="text.secondary">
+                學號 {singleStudentUnpaidAmount.studentNumber} 待付金額：
+                {formatCurrency(singleStudentUnpaidAmount.unpaidAmount)}
+              </Typography>
+            )}
+
+            <BulkPaidActions
+              studentNumber={singleStudentNumberInFilteredRows}
+              bulkPayBookIsbns={bulkPayBookIsbns}
+              bulkUnpayBookIsbns={bulkUnpayBookIsbns}
+              isBulkStatusSubmitting={isBulkStatusSubmitting}
+              isBulkPaySubmitting={isBulkPaySubmitting}
+              isBulkUnpaySubmitting={isBulkUnpaySubmitting}
+            />
+          </Box>
         </Stack>
 
-        {actionData?.message && (
-          <Alert severity={actionData.success ? 'success' : 'error'}>
-            {actionData.message}
+        {pageActionData?.message && (
+          <Alert severity={pageActionData.success ? 'success' : 'error'}>
+            {pageActionData.message}
           </Alert>
         )}
 
         <Stack spacing={2}>
-          {loaderData.orderRows.length === 0 && (
+          {orderRows.length === 0 && (
             <Alert severity="info">目前沒有已建立的訂單資料。</Alert>
           )}
 
-          {loaderData.orderRows.length > 0 && filteredRows.length === 0 && (
+          {orderRows.length > 0 && filteredRows.length === 0 && (
             <Alert severity="info">目前篩選條件下沒有符合的資料。</Alert>
           )}
 
@@ -432,7 +371,10 @@ export default function AdminPage({
               <MemoOrderStatusForm
                 key={rowKey}
                 row={row}
-                isSubmitting={isSubmitting && rowSubmittingKey === rowKey}
+                isSubmitting={
+                  isBulkStatusSubmitting ||
+                  (isSubmitting && rowSubmittingKey === rowKey)
+                }
               />
             );
           })}

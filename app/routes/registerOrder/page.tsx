@@ -22,48 +22,7 @@ import {
   type IOrder,
 } from '~/types/purchase';
 import { isbot } from 'isbot';
-
-const formatCurrency = (value: number | string) => {
-  if (typeof value === 'string') {
-    const parsed = Number(value.replaceAll(',', '').trim());
-    if (!Number.isFinite(parsed)) return '-';
-    value = parsed;
-  }
-  return `NT$ ${value.toLocaleString('zh-TW')}`;
-};
-
-const parsePrice = (value?: string) => {
-  if (!value) {
-    return 0;
-  }
-  const parsed = Number(value.replaceAll(',', '').trim());
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const getCurrentPriceValue = (book: IBook, totalOrdered?: number) => {
-  const groupPrice = parsePrice(book.groupPrice?.price);
-  const onePrice = parsePrice(book.onePrice);
-  const basePrice = parsePrice(book.basePrice);
-
-  const minQuantity = Number(book.groupPrice?.minQuantity || 0);
-  const hasGroupThreshold = minQuantity > 0;
-  const reachedGroupThreshold =
-    typeof totalOrdered === 'number' && totalOrdered >= minQuantity;
-
-  if (groupPrice > 0 && (!hasGroupThreshold || reachedGroupThreshold)) {
-    return groupPrice;
-  }
-
-  if (onePrice > 0) {
-    return onePrice;
-  }
-
-  if (groupPrice > 0) {
-    return groupPrice;
-  }
-
-  return basePrice;
-};
+import { formatCurrency, getCurrentPriceValue } from '~/utils/pricing';
 
 const getPriceLabels = (book: IBook, totalOrdered?: number) => {
   const groupPrice = book.groupPrice?.price;
@@ -112,7 +71,8 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { getOrders, getStudents } = await import('~/.server/purchase-sheets');
+  const { getOrders, getStudents } =
+    await import('~/.server/purchase-sheets/index');
 
   const requestUrl = new URL(request.url);
   const studentNumber =
@@ -161,23 +121,19 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
-export async function action({ request }: Route.ActionArgs) {
+export async function action({ request, context }: Route.ActionArgs) {
   const {
     logRegistration,
     registerOrderByStudentNumber,
     unregisterOrderByStudentNumber,
-  } = await import('~/.server/purchase-sheets');
+  } = await import('~/.server/purchase-sheets/index');
 
   const formData = await request.formData();
   const intent = String(formData.get('intent') ?? 'register');
   const studentNumber = String(formData.get('studentNumber') ?? '');
   const bookIsbn = String(formData.get('bookIsbn') ?? '');
 
-  const ip =
-    request.headers.get('x-forwarded-for') ||
-    request.headers.get('remote_addr') ||
-    '';
-
+  const ip = context.clientIp;
   const userAgent = request.headers.get('user-agent') || '';
   const isBot = isbot(userAgent);
   if (isBot) {

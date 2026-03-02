@@ -8,6 +8,8 @@ type ValueInputOption = 'RAW' | 'USER_ENTERED';
 
 type InsertDataOption = 'INSERT_ROWS' | 'OVERWRITE';
 
+type SheetRowValue = string | number | boolean | null;
+
 export type GoogleSheetsConfig = {
   spreadsheetId?: string;
 };
@@ -126,7 +128,7 @@ export async function appendSheetRow(
 
 export async function updateSheetRange(
   range: string,
-  rows: Array<Array<string | number | boolean | null>>,
+  rows: Array<Array<SheetRowValue>>,
   options?: {
     config?: GoogleSheetsConfig;
     valueInputOption?: ValueInputOption;
@@ -141,6 +143,32 @@ export async function updateSheetRange(
     valueInputOption: options?.valueInputOption ?? 'USER_ENTERED',
     requestBody: {
       values: rows,
+    },
+  });
+}
+
+export async function updateSheetRanges(
+  updates: Array<{ range: string; rows: Array<Array<SheetRowValue>> }>,
+  options?: {
+    config?: GoogleSheetsConfig;
+    valueInputOption?: ValueInputOption;
+  },
+): Promise<void> {
+  if (updates.length === 0) {
+    return;
+  }
+
+  const sheets = await getGoogleSheetsClient();
+  const spreadsheetId = getSpreadsheetId(options?.config);
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      valueInputOption: options?.valueInputOption ?? 'USER_ENTERED',
+      data: updates.map((update) => ({
+        range: update.range,
+        values: update.rows,
+      })),
     },
   });
 }

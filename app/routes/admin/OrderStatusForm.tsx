@@ -9,21 +9,14 @@ import {
 import { memo, useEffect, useState } from 'react';
 import { Form, useSubmit } from 'react-router';
 import type { StudentOrderStatusField } from '~/types/purchase';
+import { formatCurrency } from '~/utils/pricing';
+import type { AdminOrderRow } from './types';
 
 export function OrderStatusForm({
   row,
   isSubmitting,
 }: {
-  row: {
-    bookIsbn: string;
-    bookName: string;
-    subject: string;
-    studentNumber: string;
-    studentName: string;
-    ordered: boolean;
-    paid: boolean;
-    delivered: boolean;
-  };
+  row: AdminOrderRow;
   isSubmitting: boolean;
 }) {
   const submit = useSubmit();
@@ -84,6 +77,9 @@ export function OrderStatusForm({
           </Typography>
           <Typography variant="body2" color="text.secondary">
             學號：{row.studentNumber}｜姓名：{row.studentName}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            應付金額：{formatCurrency(row.payableAmount)}
           </Typography>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
