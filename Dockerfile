@@ -20,5 +20,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=runtime-dependencies-env /app/node_modules /app/node_modules
 COPY --from=build-env /app/build /app/build
+COPY --from=build-env /app/server.js /app/server.js
 EXPOSE 3000
-CMD ["./node_modules/@react-router/serve/dist/cli.js", "./build/server/index.js"]
+CMD ["server.js"]
