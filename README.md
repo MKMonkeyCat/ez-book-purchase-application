@@ -78,6 +78,7 @@ kubectl -n ez-book port-forward svc/ez-book-purchase-application-ez-book-purchas
 
 Required environment variables:
 
+- `EXPRESS_TRUST_PROXY`
 - `GOOGLE_SHEETS_SPREADSHEET_ID`
 - `GOOGLE_SHEETS_LOGS_SPREADSHEET_ID`
 - `GOOGLE_SHEETS_CLIENT_EMAIL`
