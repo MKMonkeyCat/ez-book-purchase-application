@@ -59,8 +59,13 @@ helm upgrade --install ez-book-purchase-application \
   ./charts/ez-book-purchase-application \
   -f values.prod.yaml \
   --namespace ez-book \
-  --create-namespace
+  --create-namespace \
+  --atomic \
+  --wait \
+  --timeout 5m
 ```
+
+`--atomic` will automatically rollback to the previous release when upgrade fails.
 
 4. Check resources:
 
