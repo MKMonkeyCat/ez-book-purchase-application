@@ -7,7 +7,7 @@ FROM node:24-alpine AS runtime-dependencies-env
 WORKDIR /app
 RUN npm init -y \
   && npm pkg set private=true type=module \
-  && npm install --omit=dev --no-audit --no-fund @react-router/serve@7.12.0 react-router@7.12.0
+  && npm install --omit=dev --no-audit --no-fund @react-router/serve@7.12.0 react-router@7.12.0 picocolors
 
 FROM node:24-alpine AS build-env
 WORKDIR /app
