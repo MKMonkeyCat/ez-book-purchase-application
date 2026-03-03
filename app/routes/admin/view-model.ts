@@ -36,8 +36,8 @@ export const buildBookOptions = (rows: AdminOrderRow[]) => {
 export const buildStudentOptions = (rows: AdminOrderRow[]) => {
   const optionSet = new Set<string>();
   for (const row of rows) {
-    optionSet.add(row.studentNumber);
-    optionSet.add(row.studentName.slice(row.studentName.length - 2));
+    optionSet.add(row.studentNumber.slice(row.studentNumber.length - 2));
+    optionSet.add(row.studentName);
   }
 
   return [...optionSet];
