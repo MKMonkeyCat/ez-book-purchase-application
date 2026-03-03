@@ -75,6 +75,7 @@ export default function AdminPage({
   const [filter, setFilter] = useState<RowFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('subject');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [showMobileSortFilter, setShowMobileSortFilter] = useState(false);
 
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
@@ -255,11 +256,28 @@ export default function AdminPage({
             )}
           />
 
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              setShowMobileSortFilter((current) => !current);
+            }}
+            sx={{
+              display: { xs: 'inline-flex', sm: 'none' },
+              alignSelf: 'flex-start',
+            }}
+          >
+            {showMobileSortFilter ? '隱藏排序與篩選' : '展開排序與篩選'}
+          </Button>
+
           <Box
             sx={{
-              display: 'flex',
+              display: {
+                xs: showMobileSortFilter ? 'flex' : 'none',
+                sm: 'flex',
+              },
               gap: 2,
-              alignItems: 'start',
+              alignItems: 'flex-start',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
             }}
@@ -270,6 +288,16 @@ export default function AdminPage({
               value={filter}
               onChange={(_, nextValue: RowFilter | null) => {
                 if (nextValue) setFilter(nextValue);
+              }}
+              sx={{
+                flexWrap: 'wrap',
+                '& .MuiToggleButton-root': {
+                  px: { xs: 1, sm: 1.5 },
+                  py: { xs: 0.25, sm: 0.5 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                },
               }}
             >
               <ToggleButton value="all">全部</ToggleButton>
@@ -285,6 +313,16 @@ export default function AdminPage({
                 onChange={(_, nextValue: SortBy | null) => {
                   if (nextValue) setSortBy(nextValue);
                 }}
+                sx={{
+                  flexWrap: 'wrap',
+                  '& .MuiToggleButton-root': {
+                    px: { xs: 1, sm: 1.5 },
+                    py: { xs: 0.25, sm: 0.5 },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    lineHeight: 1.2,
+                    whiteSpace: 'nowrap',
+                  },
+                }}
               >
                 {Object.entries(sortLabelMap).map(([value, label]) => (
                   <ToggleButton key={value} value={value}>
@@ -297,7 +335,11 @@ export default function AdminPage({
                 variant="outlined"
                 size="small"
                 onClick={toggleSortDirection}
-                sx={{ minWidth: 'auto' }}
+                sx={{
+                  minWidth: 'auto',
+                  px: { xs: 1, sm: 1.5 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                }}
               >
                 {sortDirection === 'asc' ? '↑' : '↓'}
               </Button>
