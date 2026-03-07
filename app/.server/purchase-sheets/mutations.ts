@@ -209,6 +209,26 @@ export async function updateStudentPaidStatusByBookIsbnsBulk(input: {
   updatedBookIsbns: string[];
   missingBookIsbns: string[];
 }> {
+  return updateStudentStatusByBookIsbnsBulk({
+    studentNumber: input.studentNumber,
+    bookIsbns: input.bookIsbns,
+    field: 'paid',
+    checked: input.checked,
+  });
+}
+
+export async function updateStudentStatusByBookIsbnsBulk(input: {
+  studentNumber: string;
+  bookIsbns: string[];
+  field: Extract<StudentOrderStatusField, 'paid' | 'delivered'>;
+  checked: boolean;
+}): Promise<{
+  success: boolean;
+  message: string;
+  student?: IStudent;
+  updatedBookIsbns: string[];
+  missingBookIsbns: string[];
+}> {
   const studentNumber = input.studentNumber.trim();
   const bookIsbns = Array.from(
     new Set(input.bookIsbns.map((isbn) => isbn.trim()).filter(Boolean)),
@@ -242,6 +262,14 @@ export async function updateStudentPaidStatusByBookIsbnsBulk(input: {
   const updates: Array<{ range: string; rows: string[][] }> = [];
   const updatedBookIsbns: string[] = [];
   const missingBookIsbns: string[] = [];
+  const fieldOffsetByName = {
+    paid: 1,
+    delivered: 2,
+  } as const;
+  const fieldStatusByName = {
+    paid: { checked: '已付款', unchecked: '未付款' },
+    delivered: { checked: '已交付', unchecked: '未交付' },
+  } as const;
 
   for (const bookIsbn of bookIsbns) {
     const bookIndex = books.findIndex((item) => item.isbn === bookIsbn);
@@ -250,9 +278,11 @@ export async function updateStudentPaidStatusByBookIsbnsBulk(input: {
       continue;
     }
 
-    const paidColumn = indexToColumnLetter(bookIndex * 3 + 4);
+    const statusColumn = indexToColumnLetter(
+      bookIndex * 3 + 3 + fieldOffsetByName[input.field],
+    );
     updates.push({
-      range: `${ORDERS_SHEET_NAME}!${paidColumn}${row}`,
+      range: `${ORDERS_SHEET_NAME}!${statusColumn}${row}`,
       rows: [[input.checked ? 'O' : '']],
     });
     updatedBookIsbns.push(bookIsbn);
@@ -271,7 +301,9 @@ export async function updateStudentPaidStatusByBookIsbnsBulk(input: {
   await updateSheetRanges(updates);
   notifyPurchaseSheetsEdited(['orders']);
 
-  const actionText = input.checked ? '已付款' : '未付款';
+  const actionText = input.checked
+    ? fieldStatusByName[input.field].checked
+    : fieldStatusByName[input.field].unchecked;
 
   return {
     success: true,

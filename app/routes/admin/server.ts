@@ -45,7 +45,7 @@ export async function handleAdminPageAction(request: Request, ip: string) {
     await import('~/.server/admin-auth');
   const {
     updateStudentOrderStatusField,
-    updateStudentPaidStatusByBookIsbnsBulk,
+    updateStudentStatusByBookIsbnsBulk,
     logAdminAudit,
   } = await import('~/.server/purchase-sheets/index');
 
@@ -59,7 +59,12 @@ export async function handleAdminPageAction(request: Request, ip: string) {
   }
 
   const { userAgent } = getRequestContext(request);
-  if (intent === 'bulk-pay-student' || intent === 'bulk-unpay-student') {
+  if (
+    intent === 'bulk-pay-student' ||
+    intent === 'bulk-unpay-student' ||
+    intent === 'bulk-deliver-student' ||
+    intent === 'bulk-undeliver-student'
+  ) {
     const studentNumber = String(formData.get('studentNumber') ?? '').trim();
     const bookIsbnsRaw = String(formData.get('bookIsbns') ?? '').trim();
     const bookIsbns = Array.from(
@@ -71,8 +76,19 @@ export async function handleAdminPageAction(request: Request, ip: string) {
       ),
     );
 
-    const checked = intent === 'bulk-pay-student';
-    const actionName = checked ? '一次付清' : '一次取消付款';
+    const field =
+      intent === 'bulk-pay-student' || intent === 'bulk-unpay-student'
+        ? 'paid'
+        : 'delivered';
+    const checked =
+      intent === 'bulk-pay-student' || intent === 'bulk-deliver-student';
+    const actionNameByIntent = {
+      'bulk-pay-student': '一次付清',
+      'bulk-unpay-student': '一次取消付款',
+      'bulk-deliver-student': '一次交付',
+      'bulk-undeliver-student': '一次取消交付',
+    } as const;
+    const actionName = actionNameByIntent[intent];
 
     if (!studentNumber || bookIsbns.length === 0) {
       return {
@@ -81,9 +97,10 @@ export async function handleAdminPageAction(request: Request, ip: string) {
       };
     }
 
-    const result = await updateStudentPaidStatusByBookIsbnsBulk({
+    const result = await updateStudentStatusByBookIsbnsBulk({
       studentNumber,
       bookIsbns,
+      field,
       checked,
     });
 
@@ -91,7 +108,7 @@ export async function handleAdminPageAction(request: Request, ip: string) {
       adminEmail: adminUser.email,
       studentNumber,
       bookIsbn: result.updatedBookIsbns.join(',') || '-',
-      field: 'paid',
+      field,
       checked,
       success: result.success,
       ip,

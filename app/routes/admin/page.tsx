@@ -22,9 +22,11 @@ import { handleAdminPageAction, loadAdminPageData } from './server';
 import {
   buildStats,
   buildStudentOptions,
+  getBulkDeliverBookIsbns,
   filterAndSortRows,
   findSingleStudentNumber,
   getBulkPayBookIsbns,
+  getBulkUndeliverBookIsbns,
   getBulkUnpayBookIsbns,
   getSingleStudentUnpaidAmount,
   sortLabelMap,
@@ -95,7 +97,15 @@ export default function AdminPage({
     isSubmitting && submittingIntent === 'bulk-pay-student';
   const isBulkUnpaySubmitting =
     isSubmitting && submittingIntent === 'bulk-unpay-student';
-  const isBulkStatusSubmitting = isBulkPaySubmitting || isBulkUnpaySubmitting;
+  const isBulkDeliverSubmitting =
+    isSubmitting && submittingIntent === 'bulk-deliver-student';
+  const isBulkUndeliverSubmitting =
+    isSubmitting && submittingIntent === 'bulk-undeliver-student';
+  const isBulkStatusSubmitting =
+    isBulkPaySubmitting ||
+    isBulkUnpaySubmitting ||
+    isBulkDeliverSubmitting ||
+    isBulkUndeliverSubmitting;
 
   const stats = useMemo(() => buildStats(orderRows), [orderRows]);
 
@@ -158,6 +168,16 @@ export default function AdminPage({
 
   const bulkUnpayBookIsbns = useMemo(
     () => getBulkUnpayBookIsbns(filteredRows),
+    [filteredRows],
+  );
+
+  const bulkDeliverBookIsbns = useMemo(
+    () => getBulkDeliverBookIsbns(filteredRows),
+    [filteredRows],
+  );
+
+  const bulkUndeliverBookIsbns = useMemo(
+    () => getBulkUndeliverBookIsbns(filteredRows),
     [filteredRows],
   );
 
@@ -363,7 +383,8 @@ export default function AdminPage({
           >
             {singleStudentUnpaidAmount && (
               <Typography variant="body2" color="text.secondary">
-                學號 {singleStudentUnpaidAmount.studentNumber} 待付金額：
+                學號 {singleStudentUnpaidAmount.studentNumber} (
+                {singleStudentUnpaidAmount.studentName}) 待付金額：
                 {formatCurrency(singleStudentUnpaidAmount.unpaidAmount)}
               </Typography>
             )}
@@ -372,9 +393,13 @@ export default function AdminPage({
               studentNumber={singleStudentNumberInFilteredRows}
               bulkPayBookIsbns={bulkPayBookIsbns}
               bulkUnpayBookIsbns={bulkUnpayBookIsbns}
+              bulkDeliverBookIsbns={bulkDeliverBookIsbns}
+              bulkUndeliverBookIsbns={bulkUndeliverBookIsbns}
               isBulkStatusSubmitting={isBulkStatusSubmitting}
               isBulkPaySubmitting={isBulkPaySubmitting}
               isBulkUnpaySubmitting={isBulkUnpaySubmitting}
+              isBulkDeliverSubmitting={isBulkDeliverSubmitting}
+              isBulkUndeliverSubmitting={isBulkUndeliverSubmitting}
             />
           </Box>
         </Stack>

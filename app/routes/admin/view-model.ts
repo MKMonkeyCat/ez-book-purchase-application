@@ -170,6 +170,26 @@ export const getBulkUnpayBookIsbns = (rows: AdminOrderRow[]) =>
     ),
   );
 
+export const getBulkDeliverBookIsbns = (rows: AdminOrderRow[]) =>
+  Array.from(
+    new Set(
+      rows
+        .filter((row) => !row.delivered)
+        .map((row) => row.bookIsbn)
+        .filter(Boolean),
+    ),
+  );
+
+export const getBulkUndeliverBookIsbns = (rows: AdminOrderRow[]) =>
+  Array.from(
+    new Set(
+      rows
+        .filter((row) => row.delivered)
+        .map((row) => row.bookIsbn)
+        .filter(Boolean),
+    ),
+  );
+
 export const getSingleStudentUnpaidAmount = (rows: AdminOrderRow[]) => {
   const studentNumber = findSingleStudentNumber(rows);
   if (!studentNumber) return null;
@@ -178,5 +198,5 @@ export const getSingleStudentUnpaidAmount = (rows: AdminOrderRow[]) => {
     .filter((row) => !row.paid)
     .reduce((sum, row) => sum + row.payableAmount, 0);
 
-  return { studentNumber, unpaidAmount };
+  return { studentNumber, unpaidAmount, studentName: rows[0].studentName };
 };
