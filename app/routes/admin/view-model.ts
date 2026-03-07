@@ -14,6 +14,9 @@ export const sortLabelMap = {
 
 export type SortBy = keyof typeof sortLabelMap;
 
+const getSeatNumber = (studentNumber: string) =>
+  studentNumber.slice(Math.max(0, studentNumber.length - 2));
+
 export const buildStats = (rows: AdminOrderRow[]) => {
   const total = rows.length;
   const paid = rows.filter((row) => row.paid).length;
@@ -36,11 +39,10 @@ export const buildBookOptions = (rows: AdminOrderRow[]) => {
 export const buildStudentOptions = (rows: AdminOrderRow[]) => {
   const optionSet = new Set<string>();
   for (const row of rows) {
-    optionSet.add(row.studentNumber.slice(row.studentNumber.length - 2));
-    optionSet.add(row.studentName);
+    optionSet.add(getSeatNumber(row.studentNumber));
   }
 
-  return [...optionSet];
+  return [...optionSet].sort((a, b) => a.localeCompare(b));
 };
 
 export const filterAndSortRows = ({
@@ -81,7 +83,7 @@ export const filterAndSortRows = ({
       if (filter === 'undelivered' && row.delivered) return false;
 
       if (normalizedStudentKeyword) {
-        const studentText = `${row.studentNumber} ${row.studentName}`
+        const studentText = getSeatNumber(row.studentNumber)
           .toLowerCase()
           .replaceAll('\n', '');
         if (!studentText.includes(normalizedStudentKeyword)) return false;

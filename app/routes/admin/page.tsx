@@ -120,7 +120,7 @@ export default function AdminPage({
   const selectableBookOptions = useMemo<SelectableBookOption[]>(() => {
     const optionMap = new Map<string, SelectableBookOption>();
 
-    for (const row of baseFilteredRows) {
+    for (const row of orderRows) {
       if (optionMap.has(row.bookIsbn)) continue;
 
       optionMap.set(row.bookIsbn, {
@@ -132,22 +132,10 @@ export default function AdminPage({
     return Array.from(optionMap.values()).sort((a, b) =>
       a.label.localeCompare(b.label, 'zh-Hant'),
     );
-  }, [baseFilteredRows]);
-
-  useEffect(() => {
-    const availableIsbnSet = new Set(
-      baseFilteredRows.map((row) => row.bookIsbn),
-    );
-
-    setSelectedBookIsbns((current) =>
-      current.filter((isbn) => availableIsbnSet.has(isbn)),
-    );
-  }, [baseFilteredRows]);
+  }, [orderRows]);
 
   const filteredRows = useMemo(() => {
-    if (selectedBookIsbns.length === 0) {
-      return baseFilteredRows;
-    }
+    if (selectedBookIsbns.length === 0) return baseFilteredRows;
 
     return baseFilteredRows.filter((row) =>
       selectedBookIsbns.includes(row.bookIsbn),
